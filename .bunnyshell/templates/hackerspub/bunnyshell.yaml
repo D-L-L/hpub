@@ -55,7 +55,7 @@ components:
   # ------------------------------------------------------------------
   - kind: Application
     name: graphql
-    gitRepo: 'https://github.com/YOUR_ORG/hackerspub.git'
+    gitRepo: 'https://github.com/D-L-L/hpub.git'
     gitBranch: main
     gitApplicationPath: /
     dockerCompose:
@@ -130,7 +130,7 @@ components:
   # ------------------------------------------------------------------
   - kind: Application
     name: web-next
-    gitRepo: 'https://github.com/YOUR_ORG/hackerspub.git'
+    gitRepo: 'https://github.com/D-L-L/hpub.git'
     gitBranch: main
     gitApplicationPath: /
     dockerCompose:
