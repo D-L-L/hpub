@@ -1,0 +1,157 @@
+version: "3.8"
+
+# Production-ready Docker Compose for Bunnyshell.
+# Import this file (not docker-compose.yml) when creating a Bunnyshell
+# environment from Docker Compose.
+
+services:
+  migration:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: sh -c "mise run migrate:media && mise run migrate"
+    environment:
+      MODE: production
+      DATABASE_URL: postgresql://postgres:hackerspub@db:5432/hackerspub
+      KV_URL: redis://redis:6379/0
+      SECRET_KEY: ${SECRET_KEY}
+      INSTANCE_ACTOR_KEY: ${INSTANCE_ACTOR_KEY}
+      ORIGIN: https://2050.digital
+      BEHIND_PROXY: "true"
+      EMAIL_FROM: admin@2050.digital
+      DRIVE_DISK: fs
+      FS_LOCATION: ./media
+    depends_on:
+      db:
+        condition: service_healthy
+
+  graphql:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: mise run prod:graphql
+    ports:
+      - "8080:8080"
+    environment:
+      MODE: production
+      PORT: "8080"
+      DATABASE_URL: postgresql://postgres:hackerspub@db:5432/hackerspub
+      KV_URL: redis://redis:6379/0
+      SECRET_KEY: ${SECRET_KEY}
+      INSTANCE_ACTOR_KEY: ${INSTANCE_ACTOR_KEY}
+      ORIGIN: https://2050.digital
+      BEHIND_PROXY: "true"
+      EMAIL_FROM: admin@2050.digital
+      DRIVE_DISK: fs
+      FS_LOCATION: ./media
+    healthcheck:
+      test: ["CMD", "mise", "run", "prod:hc:graphql"]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 60s
+    depends_on:
+      migration:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  graphql-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: mise run prod:graphql-worker
+    environment:
+      MODE: production
+      DATABASE_URL: postgresql://postgres:hackerspub@db:5432/hackerspub
+      KV_URL: redis://redis:6379/0
+      SECRET_KEY: ${SECRET_KEY}
+      INSTANCE_ACTOR_KEY: ${INSTANCE_ACTOR_KEY}
+      ORIGIN: https://2050.digital
+      BEHIND_PROXY: "true"
+      EMAIL_FROM: admin@2050.digital
+      DRIVE_DISK: fs
+      FS_LOCATION: ./media
+      WORKER_HEALTH_FILE: /tmp/hackerspub-graphql-worker.health
+    healthcheck:
+      test: ["CMD", "mise", "run", "prod:hc:graphql-worker"]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 60s
+    depends_on:
+      migration:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  web-next:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: mise run prod:web-next
+    ports:
+      - "3000:3000"
+    environment:
+      MODE: production
+      HOST: 0.0.0.0
+      API_URL: http://graphql:8080/graphql
+      ORIGIN: https://2050.digital
+      BEHIND_PROXY: "true"
+    healthcheck:
+      test: ["CMD", "mise", "run", "prod:hc:web-next"]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 60s
+    depends_on:
+      graphql:
+        condition: service_healthy
+
+  gateway:
+    image: caddy:2.10-alpine
+    ports:
+      - "8000:8000"
+    command:
+      - /bin/sh
+      - -c
+      - |
+        cat > /etc/caddy/Caddyfile <<'EOF'
+        :8000 {
+            @api path /graphql /graphql/* /medium-uploads/* /media/* /.well-known/* /ap/* /nodeinfo/*
+
+            handle @api {
+                reverse_proxy graphql:8080
+            }
+
+            handle {
+                reverse_proxy web-next:3000
+            }
+        }
+        EOF
+        caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
+    depends_on:
+      graphql:
+        condition: service_healthy
+      web-next:
+        condition: service_healthy
+
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: hackerspub
+      POSTGRES_DB: hackerspub
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d hackerspub"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:8-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
