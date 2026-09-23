@@ -5,26 +5,6 @@ version: "3.8"
 # environment from Docker Compose.
 
 services:
-  migration:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    command: sh -c "mise run migrate:media && mise run migrate"
-    environment:
-      MODE: production
-      DATABASE_URL: postgresql://postgres:hackerspub@db:5432/hackerspub
-      KV_URL: redis://redis:6379/0
-      SECRET_KEY: ${SECRET_KEY}
-      INSTANCE_ACTOR_KEY: ${INSTANCE_ACTOR_KEY}
-      ORIGIN: https://2050.digital
-      BEHIND_PROXY: "true"
-      EMAIL_FROM: admin@2050.digital
-      DRIVE_DISK: fs
-      FS_LOCATION: ./media
-    depends_on:
-      db:
-        condition: service_healthy
-
   graphql:
     build:
       context: .
