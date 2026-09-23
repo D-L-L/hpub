@@ -1,0 +1,32 @@
+name: Hackers' Pub on 2050.digital
+description: |
+  Minimal Bunnyshell template for Hackers' Pub (hackers-pub/hackerspub).
+  Runs the GraphQL API, federation worker, and Next.js web UI behind a Caddy
+  gateway on https://2050.digital. PostgreSQL is intentionally external —
+  provide your own database via the hackerspub-database-url secret.
+tags:
+  - nodejs
+  - nextjs
+  - activitypub
+  - hackerspub
+  - postgres
+  - redis
+icons:
+  - nodejs
+  - nextjs
+  - postgres
+  - redis
+categories:
+  - social
+  - framework
+stack:
+  packages:
+    - name: Node.js
+      version: '24'
+    - name: pnpm
+      version: '10.12.4'
+    - name: PostgreSQL
+      version: '17'
+    - name: Redis
+      version: '8'
+discoverable: false
